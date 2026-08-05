@@ -1,0 +1,13 @@
+{
+  "name": "yatoml",
+  "url" : "https://github.com/nyan-labs/yatoml/",
+  "license": "GPL",
+  "tags": ["config", "configuration", "toml"],
+  "description": "yet another TOML (parser)",
+  "version": "0.0.1-alpha",
+  "classPath": "src/",
+  "releasenote": "not released",
+  "contributors": ["qzipp"],
+  "dependencies": {},
+  "main": "tools.Main"
+}
