@@ -3,22 +3,28 @@ package yatoml.lexer;
 import yatoml.lexer.Syntax;
 import yatoml.lexer.Token;
 
+using StringTools;
+
 @:build(yatoml.lexer.Lexer.build())
 class Lexer {
   public function new() {}
   
-  @:regen var tokens: Array<Token> = new Array();
+  @:regen var tokens: Array<TokenPos> = new Array();
   @:regen var pos: Int = 0;
+  @:regen var line: Int = 1;
+  @:regen var column: Int = 1;
   @:regen var content: String = "";
 
-  @:regen var queue: Array<Token> = new Array();
+  @:regen var queue: Array<TokenPos> = new Array();
 
   public function read(content: String) {
     regen();
 
     this.content = content;
+    this.content.replace(Syntax.NEWLINE_CR + Syntax.NEWLINE_LF, Syntax.NEWLINE_LF);
 
     while(!is_eof()) {
+      var pos = position();
       var token = tokenize();
 
       for(token in queue) {
@@ -27,8 +33,16 @@ class Lexer {
       queue = new Array();
 
       if(token != null)
-        tokens.push(token);
+        tokens.push({
+          token: token,
+          pos: pos
+        });
     }
+
+    tokens.push({
+      token: Eof,
+      pos: position()
+    });
 
     return tokens;
   }
@@ -37,79 +51,209 @@ class Lexer {
     return switch peek() {
       case Syntax.WHITESPACE.contains(_) => true:
         advance();
-        Whitespace;
+        // Whitespace;
+        null;
+
+      case Syntax.OP_PLUS:
+        advance();
+        Operator(Plus);
+      case Syntax.OP_MINUS:
+        advance();
+        Operator(Minus);
+
+      case Syntax.OP_DOT:
+        advance();
+        Operator(Dot);
+      case Syntax.OP_COMMA:
+        advance();
+        Operator(Comma);
+
+      case Syntax.OP_LEFT_BRACKET:
+        advance();
+        Operator(LeftBracket);
+
+      case Syntax.OP_RIGHT_BRACKET:
+        advance();
+        Operator(RightBracket);
+
+      case Syntax.OP_LEFT_CURLY:
+        advance();
+        Operator(LeftCurly);
+
+      case Syntax.OP_RIGHT_CURLY:
+        advance();
+        Operator(RightCurly);
+
+      case Syntax.OP_COLON:
+        advance();
+        Operator(Colon);
+
+      case Syntax.OP_ASSIGN:
+        advance();
+        Operator(Assign);
+
+      case Syntax.NEWLINE_LF: 
+        advance();
+
+        line++;
+        column = 1;
+
+        Newline;
 
       case Syntax.COMMENT: 
         advance();
-        Comment;
+        
+        var content = "";
+        while(peek() != Syntax.NEWLINE_LF && !is_eof()) { content += peek(); advance(); };
+        
+        // Comment(content);
+        null;
 
-      case Syntax.get_quote_type(_) => quote_type if(quote_type != null):
-        var quote_char = peek(); 
+      case Syntax.OP_QUOTE_BASIC, Syntax.OP_QUOTE_LITERAL:
+        var quote_char = peek();
         advance();
+
+        var multi = 
+          peek(0) == Syntax.OP_QUOTE_LITERAL && peek(1) == Syntax.OP_QUOTE_LITERAL ||
+          peek(0) == Syntax.OP_QUOTE_BASIC && peek(1) == Syntax.OP_QUOTE_BASIC;
+
+        if(multi) {
+          advance();
+          advance();
+        }
+
+        var quote_type: QuoteType = 
+          if(quote_char == Syntax.OP_QUOTE_BASIC)
+            if(multi) MultiBasic else Basic;
+          else if(quote_char == Syntax.OP_QUOTE_LITERAL)
+            if(multi) MultiLiteral else Literal;
+          else throw "What the fuck";
 
         var chars = new Array<String>();
         
-        //literals should not accept escapes and bla bla
+        // literals should not accept escapes and bla bla
         while(!is_eof()) {
           var char = peek();
-          if(char != quote_char)
+          if(char == quote_char) {
+            advance();
+            if(multi) {
+              advance();
+              advance();
+            }
+
             break;
+          }
 
           advance();
           chars.push(char);
         };
-
 
         String(chars.join(""), quote_type);
 
       case Syntax.is_digit(_) => true:
         var chars = new Array<String>();
         
-        chars.push(peek());
-        advance();
+        //besttest code evar!
+        var mode = null;
         // hexadecimal or octal or binary
-        if(peek() == "x" || peek() == "o" || peek() == "b" || Syntax.is_digit(peek())) {
+        if(peek() == "0" && (peek(1) == "x" || peek(1) == "o" || peek(1) == "b")) {
           chars.push(peek());
+          advance();
+          
+          mode = peek();
+          chars.push(mode);
 
           advance();
         }
 
+        var is_float = false;
+
+        // exponents? idk
+        //floats? im lazy
         while(!is_eof()) {
           var char = peek();
-          if(!Syntax.is_digit(char))
+          if(char == ".") {
+            if(is_float)
+              throw "cant't have more than one dot in a float";
+
+            is_float = true; 
+
+            chars.push(char);
+            advance();
+            
+            continue;
+          }
+
+          var valid = switch mode {
+            case "x": Syntax.is_alphanumeric(char);
+            case "o": Syntax.is_octal(char);
+            case "b": Syntax.is_binary(char);
+            case _: Syntax.is_digit(char);
+          }
+
+          if(char == "_" && peek(1) == "_")
+            throw "can't do that mate";
+
+          if(char == "_") {
+            advance();
+            continue;
+          }
+
+          if(!valid)
             break;
 
           advance();
           chars.push(char);
         };
 
-        Int(Std.parseInt(chars.join("")));
+        var joined = chars.join("");
+        if(is_float)
+          Float(Std.parseFloat(joined))
+        else 
+          Int(Std.parseInt(joined));
 
-
-      case Syntax.is_ascii(_) => true:
+      case Syntax.is_identifier(_) => true:
         var chars = new Array<String>();
         
         while(!is_eof()) {
           var char = peek();
-          if(!Syntax.is_alphanumeric(char))
+          if(!Syntax.is_identifier(char))
             break;
 
           advance();
           chars.push(char);
         };
 
+        var name = chars.join("");
 
-        Identifier(chars.join(""));
+        switch name {
+          case _.toLowerCase() => "true":
+            Bool(true);
+          case _.toLowerCase() => "false":
+            Bool(false);
 
-      case c: throw 'unknown character $c';
+          case _: Identifier(name);
+        }
+
+
+      case c: throw 'unknown character `$c` (${c.charCodeAt(0)})';
     }
   }
 
-  inline function peek(offset: Int = 0)
-    return content.charAt(pos);
+  inline function position(): Position 
+    return {
+      line: line,
+      column: column
+    };
 
-  inline function advance(offset: Int = 1)
+  inline function peek(offset: Int = 0)
+    return content.charAt(pos + offset);
+
+  inline function advance(offset: Int = 1) {
+    column = column + offset;
+
     pos = pos + offset;
+  }
 
   inline function is_eof()
     return pos >= content.length;

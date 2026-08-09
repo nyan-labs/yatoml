@@ -1,5 +1,5 @@
 -cp src/
 
---main yatoml.Toml
+--main yatoml.TOML
 
 --interp

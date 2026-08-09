@@ -1,0 +1,31 @@
+[test]
+greeting = "hi"
+amount = -4.0
+address = 0xDEADBEEF
+ip = "192.168.1.1"
+ports = [80, 443]
+expose = true
+#contact = {
+#  cat = "meow"
+#}
+
+[test]
+ a =" yep"
+["1"]
+ a =" yep"
+
+["cool"]
+  hi = """
+      bro
+  """
+
+[["cool".stuff]]
+  name = "paw"
+
+[["cool".stuff]]
+  name = "paw2"
+#[["cool".stuff]]
+#  name = "pawws"
+  
+#[ j . "ʞ" . 'l' ] 
+#a = "b"

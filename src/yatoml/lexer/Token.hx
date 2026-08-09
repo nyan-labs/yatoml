@@ -17,24 +17,44 @@ enum Operator {
   LeftBracket;
   RightBracket;
 
+  LeftCurly;
+  RightCurly;
+
   Colon;
   Assign;
+  Comma;
+  Dot;
+  Minus;
+  Plus;
 }
 
 enum Token {
-  Whitespace;
+  Eof;
+
+
+  // Whitespace;
   Newline;
 
-  Comment;
+  // Comment(content: String);
   Identifier(i: String);
   
   Int(i: Int);
-  Float(i: Float);
-  String(i: String, type: QuoteType);
-  Bool(i: String);
+  Float(f: Float);
+  String(s: String, type: QuoteType);
+  Bool(b: Bool);
   Date(date: String);
 
   Operator(op: Operator);
   
   Table(name: String);
+}
+
+typedef Position = {
+  line: Int,
+  column: Int,
+}
+
+typedef TokenPos = {
+  token: Token,
+  pos: Position
 }
