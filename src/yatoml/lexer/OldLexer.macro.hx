@@ -5,7 +5,8 @@ import haxe.macro.Expr;
 
 using Lambda;
 
-class Lexer {
+@:deprecated
+class OldLexer {
   public static function build(): Array<Field> {
     var fields = Context.getBuildFields();
 

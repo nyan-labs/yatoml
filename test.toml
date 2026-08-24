@@ -5,14 +5,16 @@ address = 0xDEADBEEF
 ip = "192.168.1.1"
 ports = [80, 443]
 expose = true
-#contact = {
-#  cat = "meow"
-#}
+contact = {
+  cat = "meow",
+  "bitch" = { qzip = true }
+}
+pawjob.sticky.value = 5.55
 
 [test]
- a =" yep"
-["1"]
- a =" yep"
+  a =" yep"
+  dfd = -inf
+  ffff = nan
 
 ["cool"]
   hi = """
@@ -20,10 +22,24 @@ expose = true
   """
 
 [["cool".stuff]]
-  name = "paw"
+  name = "HI"
 
 [["cool".stuff]]
-  name = "paw2"
+  name = "very cool item"
+
+[["cool".stuff.yep]]
+  agree = "indeed"
+[["cool".stuff.stuffed]]
+  stuffing = 100
+
+
+[["cool".stuff]]
+  name = "paws"
+
+[["cool".stuff.another]]
+  another-paw = true
+  another.paw = "yes"
+
 #[["cool".stuff]]
 #  name = "pawws"
   

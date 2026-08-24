@@ -13,29 +13,32 @@ enum TableType {
   Dict;
 }
 
-@:build(yatoml.lexer.Lexer.build())
 class Parser {
   public function new() {}
 
-  @:regen var pos: Int = 0;
+  var pos: Int = 0;
   
-  @:regen var tokens: Array<TokenPos> = new Array();
+  var tokens: Array<TokenPos> = new Array();
 
+  var data: DynamicAccess<Dynamic> = {};
   // funny dot.path 
-  @:regen var structure: Map<String, TableType> = new Map();
+  var structure: Map<String, TableType> = new Map();
 
-  @:regen var current_dot_path: Null<String> = null;
-  @:regen var current_table: Null<DynamicAccess<Dynamic>> = null;
+  var current_dot_path: Array<String> = new Array();
 
   public function read(tokens: Array<TokenPos>) {
-    regen();
+    this.pos = 0;
+    this.tokens = new Array();
+    this.data = {};
+    this.structure = new Map();
+    this.current_dot_path = new Array();
+    
+    this.errors = new Array();
 
     this.tokens = tokens;
-
-    var data: DynamicAccess<Dynamic> = {};
-
+    
     while(!is_eof())
-      parse(data);
+      parse();
 
     if(errors.length != 0)
       throw errors.join("\n");
@@ -43,10 +46,12 @@ class Parser {
     return data;
   }
 
-  function parse(data: DynamicAccess<Dynamic>) {
+  function parse() {
     var token = peek();
+    if(token == null)
+      return;
 
-    trace("> ", token);
+    // trace("> ", token);
     switch token.token {
       case Newline:
         advance();
@@ -81,7 +86,9 @@ class Parser {
         expect(Operator(RightBracket));
         advance();
 
-        var table_name_concat = table_name_pack.join(".");
+        current_dot_path = table_name_pack;
+
+        var table_name_concat = current_dot_path.join(".");
 
         var expected_table_type = structure.get(table_name_concat);
 
@@ -91,56 +98,11 @@ class Parser {
         else if(expected_table_type != table_type)
           throw 'expected $expected_table_type, got $table_type';
 
-        current_dot_path = table_name_concat;
         
         // there is a reason its here yea
         if(table_name_pack.length == 0) {
           error("invalid table name");
           return;
-        }
-
-        switch table_type {
-          case Dict: 
-            final table_name_top = table_name_pack.pop();
-
-            var parent = data;
-            for(name in table_name_pack) {
-              parent = parent.get(name) ?? parent.set(name, {});
-            }
-
-            var table: DynamicAccess<Dynamic> = parent.get(table_name_top) ?? {};
-            parent.set(table_name_top, table);
-            
-            current_table = table;
-
-          case Array:
-            var array: Array<Dynamic> = new Array(); 
-
-            var length = table_name_pack.length - 1;
-
-            var parent = data;
-            for(i => name in table_name_pack) {
-              var new_parent = parent.get(name) ?? parent.set(name, 
-                if(i == length) 
-                  new Array<Dynamic>() 
-                else 
-                  ({})
-              );
-
-              if(i == length) {
-                if(new_parent is Array) {
-                  array = cast new_parent;
-                } else if(i == length) throw 'expected $expected_table_type, got $table_type';
-
-                break;
-              } else parent = new_parent;
-            }
-
-            var table: DynamicAccess<Dynamic> = {};
-            array.push(table);
-            
-            current_table = table;
-            
         }
 
       case Identifier(s), String(s, Basic), String(s, Literal):
@@ -152,6 +114,26 @@ class Parser {
 
   function parse_key_and_value() {
     var key = parse_value();
+    // for dotpath, we should just make(or use if it exists) a new table here for each key after THIS key so its like $key = { $key1: { $key2: $value } }
+
+    var path = new Array<String>();
+    path.push(key);
+
+    while(!is_eof() && check(Operator(Dot))) {
+      advance();
+
+      path.push(parse_value());
+    }
+
+    key = path.pop();
+
+    // trace(path, key);
+    var table = if(path.length > 0) 
+      get_table(current_dot_path.concat(path));
+    else 
+      get_table(current_dot_path);
+
+    // trace(table, current_dot_path);
 
     switch peek().token {
       case Operator(Assign):
@@ -160,18 +142,97 @@ class Parser {
       case token:
         throw 'assign expected, got $token';
     }
-   
+    
     var value = parse_value();
 
-    current_table.set(key, value);
+    table.set(key, value);
+  }
+
+  function get_table(path: Array<String>) {
+    var path_name = path.join("."); 
+
+    var length = path.length - 1;
+    // if(type == null)
+    //   structure.set(path_name, type = Dict);
+    
+    var parent: DynamicAccess<Dynamic> = data;
+    for(i => name in path) {
+      var path_name = path.slice(0, i + 1).join(".");
+      
+      var type = structure.get(path_name);
+
+      if(type == null)
+        structure.set(path_name, type = /*i == length ? Array :*/Dict);
+
+      // trace(path_name, name, parent, parent.get(name), type);
+      parent = switch type {
+        case Dict: 
+          parent.get(name) ?? parent.set(name, {});
+        case Array:
+          var array = cast parent.get(name) ?? parent.set(name, new Array());
+  
+          // check if its the last "key" in the path (ex: `path.to.key`)
+          final is_toplevel = i == length;
+          
+          // we get the latest table in the array cuz thats how toml works lol
+          var table = array[array.length - 1];
+  
+          if(table == null || is_toplevel) {
+            table = {};
+  
+            array.push(table);
+          };
+  
+  
+          table;
+      };
+    }
+
+    return parent;
   }
 
   function parse_value(): Dynamic {
     return switch peek().token {
-      // case Newline:
-      //   advance();
-      //   parse_value();
+      case Identifier("nan"):
+        advance();
+        Math.NaN;
+      case Identifier("inf"):
+        advance();
+        Math.POSITIVE_INFINITY;
 
+      case Operator(LeftCurly):
+        advance();
+        
+        var table: DynamicAccess<Dynamic> = {};
+
+        while(!is_eof()) {
+          skip_newline();
+          if(check(Operator(RightCurly)))
+            break;
+
+          var key = parse_value();
+
+          switch peek().token {
+            case Operator(Assign):
+              advance();
+
+            case token:
+              throw 'assign expected, got $token';
+          }
+
+          var value = parse_value();
+
+          table.set(key, value);
+
+          // mandatory til last line
+          if(check(Operator(Comma)))
+            advance();
+        }
+
+        expect(Operator(RightCurly));
+        advance();
+
+        table;
 
       case Identifier(i):
         advance();
@@ -184,7 +245,7 @@ class Parser {
       case Operator(Plus):
         advance();
         var number = parse_value();
-        number;
+        --number;
 
       case Operator(Minus):
         advance();
@@ -295,7 +356,7 @@ class Parser {
   inline function check(what: Token, ?it: Token = null)
     return Type.enumEq(if(it == null) peek().token else it, what);
 
-  @:regen var errors: Array<String> = new Array();
+  var errors: Array<String> = new Array();
   inline function error(message: String, ?token: TokenPos = null, ?custom = false, ?pos: PosInfos) {
     if(token == null) token = peek();
  
@@ -311,5 +372,5 @@ class Parser {
     pos = pos + offset;
 
   inline function is_eof()
-    return peek().token == Eof;
+    return peek() != null && peek().token == Eof;
 }

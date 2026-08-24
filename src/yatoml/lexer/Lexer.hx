@@ -5,20 +5,24 @@ import yatoml.lexer.Token;
 
 using StringTools;
 
-@:build(yatoml.lexer.Lexer.build())
 class Lexer {
   public function new() {}
   
-  @:regen var tokens: Array<TokenPos> = new Array();
-  @:regen var pos: Int = 0;
-  @:regen var line: Int = 1;
-  @:regen var column: Int = 1;
-  @:regen var content: String = "";
+  var tokens: Array<TokenPos> = new Array();
+  var pos: Int = 0;
+  var line: Int = 1;
+  var column: Int = 1;
+  var content: String = "";
 
-  @:regen var queue: Array<TokenPos> = new Array();
+  var queue: Array<TokenPos> = new Array();
 
   public function read(content: String) {
-    regen();
+    this.tokens = new Array();
+    this.pos = 0;
+    this.line = 1;
+    this.column = 1;
+
+    this.queue = new Array();
 
     this.content = content;
     this.content.replace(Syntax.NEWLINE_CR + Syntax.NEWLINE_LF, Syntax.NEWLINE_LF);
