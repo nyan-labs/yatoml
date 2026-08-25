@@ -26,6 +26,8 @@ enum Operator {
   Dot;
   Minus;
   Plus;
+
+  Delimiter(char: String);
 }
 
 enum Token {

@@ -5,7 +5,7 @@ import sys.io.File;
 import yatoml.lexer.Syntax;
 import yatoml.lexer.Lexer;
 
-class TOMLMacro {
+class TomlMacro {
   // macro static public function read(content: String) {
   //   var lexer = new Lexer();
   //   var tokens = lexer.read(content);
@@ -20,12 +20,8 @@ class TOMLMacro {
     haxe.macro.Context.registerModuleDependency(haxe.macro.Context.getLocalModule(), path);
     return try {
       var content = File.getContent(path);
-
-      var lexer = new Lexer();
-      var tokens = lexer.read(content);
-
-      var parser = new Parser();
-      var parsed = parser.read(tokens);
+      
+      var parsed = Toml.parse(content);
 
       macro $v{parsed};
     } catch(e) {

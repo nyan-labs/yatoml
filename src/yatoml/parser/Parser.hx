@@ -6,6 +6,8 @@ import haxe.EnumTools;
 import haxe.DynamicAccess;
 import yatoml.lexer.Token;
 
+using StringTools;
+using Std;
 using yatoml.utils.EnumTools;
 
 enum TableType {
@@ -135,12 +137,13 @@ class Parser {
 
     // trace(table, current_dot_path);
 
+    var token = peek();
     switch peek().token {
       case Operator(Assign):
         advance();
 
-      case token:
-        throw 'assign expected, got $token';
+      case _:
+        throw 'assign expected, got ${token.token} at ${token.pos.line}:${token.pos.column}';
     }
     
     var value = parse_value();
@@ -200,6 +203,15 @@ class Parser {
         advance();
         Math.POSITIVE_INFINITY;
 
+      case Operator(Delimiter(char)):
+        switch char {
+          case "T", "Z": char;
+
+          case _: 
+            error('unexpected delimiter `$char`');
+            "";
+        }
+
       case Operator(LeftCurly):
         advance();
         
@@ -251,6 +263,123 @@ class Parser {
         advance();
         var number = parse_value();
         -number;
+
+      case Int(var year) if(peek(1).token.match(Operator(Minus))):
+        advance();
+        advance();
+        
+        // problem: this allows dates like 2026-8-25T0:1:0+5:0, 
+        // which is totally invalid, 
+        // but in here we pad each number with a 0 regardless if it had it originally or not... 
+        // we may have to move this to the Lexer, but i dont want to as of now..
+
+        var month = switch peek().token {
+          case Int(month): 
+            advance();
+            month.string().lpad('0', 2);
+          case got: 
+            error('expected Int, got $got', peek());
+            "01";
+        }
+        
+        expect(Operator(Minus));
+        advance();
+        
+        var day = switch peek().token {
+          case Int(day): 
+            advance();
+            day.string().lpad('0', 2);
+          case got: 
+            error('expected Int, got $got', peek());
+            "01";
+        }
+
+
+        if(check(Operator(Delimiter("T"))))
+          advance();
+
+        var has_time = false;
+        var hour = switch peek().token {
+          case Int(hour): 
+            advance();
+            has_time = true;
+            hour.string().lpad('0', 2);
+
+          case got: 
+            "00";
+        }
+
+        if(has_time) {
+          expect(Operator(Colon));
+          advance();
+        }
+
+        var minutes = switch peek().token {
+          case Int(minutes): 
+            advance();
+            minutes.string().lpad('0', 2);
+          case got: 
+            if(has_time) error('expected Int, got $got', peek());
+            "00";
+        }
+
+        if(has_time) {
+          check(Operator(Colon));
+          advance();
+        }
+
+        // we can't do miliseconds.. woops..
+        var miliseconds: Float = 0.0;
+        var seconds = switch peek().token {
+          case Int(seconds): 
+            advance();
+            seconds.string().lpad('0', 2);
+          case Float(seconds): 
+            advance();
+
+            miliseconds = seconds;
+            
+            Math.floor(seconds).string().lpad('0', 2);
+          case got: 
+            // error('expected Int, got $got', peek());
+            "00";
+        }
+        
+        var offset = switch peek().token {
+          case Operator(Plus), Operator(Minus):
+            var format = if(check(Operator(Plus))) "+" else "-";
+            advance();
+
+            format += switch peek().token {
+              case Int(hour):
+                advance();
+                hour.string().lpad('0', 2);
+              case got: 
+                error('expected Int, got $got', peek());
+                "00";
+            }
+
+            expect(Operator(Colon));
+            advance();
+            format += ":";
+
+            format += switch peek().token {
+              case Int(seconds):
+                advance();
+                seconds.string().lpad('0', 2);
+              case got: 
+                error('expected Int, got $got', peek());
+                "00";
+            }
+
+          case Operator(Delimiter("Z")): "+00:00";
+
+          case _: "";
+        }
+
+        // var date = std.Date.fromString('$year-$month-$day $hour:$minutes:$seconds');
+        // date;
+        '$year-$month-$day $hour:$minutes:$seconds$offset';
 
       case Int(i):
         advance();
@@ -342,13 +471,13 @@ class Parser {
   //   while(!is_eof() && peek().token.match(Comment(_))) advance();
   // }
 
-  inline function expect(what: Token, ?it: TokenPos = null) {
+  inline function expect(what: Token, ?it: TokenPos = null, ?pos: PosInfos) {
     if(it == null) it = peek();
 
     if(check(what, it.token))
       return it.token
     else {
-      error('expected ${what}, got ${it.token}', it);
+      error('expected ${what}, got ${it.token}', it, pos);
       return it.token;
     }
   }

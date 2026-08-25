@@ -96,6 +96,13 @@ class Lexer {
         advance();
         Operator(Assign);
 
+      case "T":
+        advance();
+        Operator(Delimiter("T"));
+      case "Z":
+        advance();
+        Operator(Delimiter("Z"));
+
       case Syntax.NEWLINE_LF: 
         advance();
 

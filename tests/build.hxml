@@ -1,0 +1,6 @@
+-cp src
+-cp tests
+
+--main Tests
+
+--interp
