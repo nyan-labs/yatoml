@@ -15,9 +15,12 @@ class Main {
   // this lets you know the fields at compile time!
 
   static final macro_time = TomlMacro.load("./path/to/config.toml");
+  static final parsed = Toml.read("test = 'works!'");
   
   static function main() {
-    trace(macro_time); 
+    trace(macro_time);
+
+    trace(parsed.test); // works!
   }
 }
 ```
