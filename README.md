@@ -30,4 +30,4 @@ class Main {
 ```
 
 # contributions
-you are more than welcome to contribute
+you are more than welcome to contribute (with the exception of any ai usage)

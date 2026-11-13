@@ -5,7 +5,8 @@ title = "TOML Example"
 [owner]
 name = "Tom Preston-Werner"
 #dob = 1979-05-27T07:32:00-08:00
-dob = 1979-05-27T07:32:00+4:00
+#dob = 1979-05-27T07:32:00+4:00 # this also works; big problem!!! 
+dob = 1979-05-27T07:32:00+04:00
 
 [database]
 enabled = true
