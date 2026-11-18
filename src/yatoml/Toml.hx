@@ -1,5 +1,7 @@
 package yatoml;
 
+import yatoml.utils.Stringify;
+import haxe.DynamicAccess;
 import haxe.Json;
 import yatoml.parser.Parser;
 import sys.io.File;
@@ -16,4 +18,7 @@ class Toml {
 
     return parsed;
   }
+
+  static public function stringify(data: TomlAccess)
+    return Stringify.stringify(data);
 }

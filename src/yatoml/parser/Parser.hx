@@ -15,6 +15,8 @@ enum TableType {
   Dict;
 }
 
+typedef TomlAccess = DynamicAccess<Dynamic>;
+
 class Parser {
   public function new() {}
 
@@ -22,7 +24,7 @@ class Parser {
   
   var tokens: Array<TokenPos> = new Array();
 
-  var data: DynamicAccess<Dynamic> = {};
+  var data: TomlAccess = {};
   // funny dot.path 
   var structure: Map<String, TableType> = new Map();
 
